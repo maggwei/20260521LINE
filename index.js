@@ -1,32 +1,34 @@
-import express from 'express';
-import * as line from '@line/bot-sdk';
-import axios from 'axios';
+import 'dotenv/config'
+import linebot from 'linebot'
+import commandExrate from './commands/exrate.js'
+import commandWda from './commands/wda.js'
+import commandCourse from './commands/course.js'
+import commandConvenience from './commands/convenience.js'
 
-const config = {
-  channelAccessToken: "weO4vTIipUfJTNIZxoHJmfE+CqC4iEQt/SYvbBUqFWbOGUGuxEu9av1KNRgP/MzpS2Bk9C2aR3w1jA0mfP2v92Xfvc0oljagvUrJwFReDLpLjSrIHXYi0MzPihJVkX/2AtF6IaXior2CkrcaqUmmfgdB04t89/1O/w1cDnyilFU=",
-  channelSecret: "d3f965417706a51e43ca5c0e4161393d"
-};
+const bot = linebot({
+  channelId: process.env.CHANNEL_ID,
+  channelSecret: process.env.CHANNEL_SECRET,
+  channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN,
+})
 
-const app = express();
-const client = new line.messagingApi.MessagingApiClient({ channelAccessToken: config.channelAccessToken });
-
-app.post('/callback', line.middleware(config), async (req, res) => {
-  const event = req.body.events[0];
+bot.on('message', (event) => {
   if (event.message.type === 'text') {
-    try {
-      const response = await axios.get('https://data.moenv.gov.tw/api/v2/toilet?api_key=e8dd42e6-9b8b-43f8-925e-b89010260485&limit=100&format=JSON');
-      const toilet = response.data.records.find(t => t.area === event.message.text);
-      const text = toilet ? `公廁：${toilet.name}\n地址：${toilet.address}` : "找不到該區公廁";
-
-      await client.replyMessage({
-        replyToken: event.replyToken,
-        messages: [{ type: 'text', text }]
-      });
-    } catch (err) {
-      console.error(err);
+    if (event.message.text === '匯率') {
+      commandExrate(event)
+    } else if (event.message.text === '職訓') {
+      commandWda(event)
     }
+  } else if (event.message.type === 'location') {
+    commandConvenience(event)
   }
-  res.status(200).send('OK');
-});
+})
 
-app.listen(3000, () => console.log('OK'));
+bot.on('postback', (event) => {
+  if (event.postback.data === 'course') {
+    commandCourse(event)
+  }
+})
+
+bot.listen('/', process.env.PORT || 3000, () => {
+  console.log('機器人啟動')
+})
